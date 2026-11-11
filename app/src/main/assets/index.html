@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Editor Stochy</title>
+<style>
+:root{--ink:#263238;--muted:#6b7780;--accent:#546b8b;--paper:#fff;--bg:#f1f3f6}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}.top{background:#fff;padding:16px;position:sticky;top:0;box-shadow:0 2px 8px #0001;z-index:2}.brand{font-size:22px;font-weight:700;color:var(--accent)}.sub{font-size:12px;color:var(--muted);margin-top:3px}.wrap{padding:14px;max-width:850px;margin:auto}.panel{background:#fff;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px #00000009}.row{display:flex;gap:8px;flex-wrap:wrap}button,.btn{border:0;border-radius:9px;padding:10px 12px;background:#e9edf3;color:#263238;font-weight:600;font-size:14px}button.primary{background:var(--accent);color:white}input,select{border:1px solid #d9dfe6;border-radius:9px;padding:11px;font-size:15px;min-width:0}input{flex:1;width:100%}#title{font-weight:700}.tools{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.tools button{padding:9px 12px}#editor{background:white;min-height:48vh;padding:18px;border:1px solid #e0e4e9;border-radius:10px;outline:none;line-height:1.6;overflow-wrap:anywhere}#editor:empty:before{content:'Comece a escrever seu texto aqui...';color:#9aa3aa}.doc{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f2;gap:8px}.doc:last-child{border:0}.doc small{display:block;color:var(--muted);margin-top:3px}.hidden{display:none}.hint{color:var(--muted);font-size:12px}
+</style></head><body>
+<header class="top"><div class="brand">✎ Editor Stochy</div><div class="sub">Seu espaço simples para escrever e organizar ideias</div></header>
+<main class="wrap">
+<section class="panel"><div class="row"><input id="title" placeholder="Título do documento"><select id="folder"><option value="Pessoal">Pessoal</option><option value="Trabalho">Trabalho</option><option value="Estudos">Estudos</option><option value="Outros">Outros</option></select></div>
+<div class="tools">
+<button onclick="cmd('bold')"><b>B</b></button><button onclick="cmd('italic')"><i>I</i></button><button onclick="cmd('underline')"><u>U</u></button><button onclick="cmd('insertUnorderedList')">• Lista</button><button onclick="cmd('insertOrderedList')">1. Lista</button><button onclick="cmd('justifyLeft')">☰</button><button onclick="cmd('justifyCenter')">≡</button>
+</div><div id="editor" contenteditable="true" spellcheck="true"></div>
+<div class="row" style="margin-top:12px"><button class="primary" onclick="saveDoc()">Salvar</button><button onclick="newDoc()">Novo</button><button onclick="toggleFav()">☆ Favorito</button></div>
+<div class="row" style="margin-top:8px"><button onclick="exportDoc('pdf')">Exportar PDF</button><button onclick="exportDoc('docx')">Exportar DOCX</button><button onclick="exportDoc('txt')">Exportar TXT</button></div><p class="hint">Os documentos ficam salvos neste aparelho. Ao exportar, escolha onde guardar o arquivo.</p></section>
+<section class="panel"><div class="row"><input id="search" placeholder="Pesquisar documentos..." oninput="renderDocs()"><select id="filter" onchange="renderDocs()"><option value="">Todas as pastas</option><option>Pessoal</option><option>Trabalho</option><option>Estudos</option><option>Outros</option></select><button onclick="showFavs()">☆</button></div><div id="docs"></div></section>
+</main>
+<script>
+let docs=JSON.parse(localStorage.getItem('stochy_docs')||'[]'),current=null,onlyFav=false;
+const editor=document.getElementById('editor'),title=document.getElementById('title'),folder=document.getElementById('folder');
+function cmd(c){document.execCommand(c,false,null);editor.focus()}
+function persist(){localStorage.setItem('stochy_docs',JSON.stringify(docs))}
+function saveDoc(){let name=title.value.trim()||'Sem título',html=editor.innerHTML;if(!editor.innerText.trim()){alert('Escreva algo antes de salvar.');return}
+let d=current?docs.find(x=>x.id===current):null;if(d){d.title=name;d.html=html;d.folder=folder.value;d.updated=Date.now()}else{d={id:String(Date.now()),title:name,html,folder:folder.value,fav:false,updated:Date.now()};docs.unshift(d);current=d.id}persist();renderDocs();alert('Documento salvo neste aparelho!')}
+function newDoc(){current=null;title.value='';editor.innerHTML='';folder.value='Pessoal';}
+function loadDoc(id){let d=docs.find(x=>x.id===id);if(!d)return;current=id;title.value=d.title;editor.innerHTML=d.html;folder.value=d.folder}
+function toggleFav(){let d=docs.find(x=>x.id===current);if(!d){alert('Salve o documento primeiro.');return}d.fav=!d.fav;persist();renderDocs();alert(d.fav?'Adicionado aos favoritos.':'Removido dos favoritos.')}
+function showFavs(){onlyFav=!onlyFav;renderDocs()}
+function renderDocs(){let q=document.getElementById('search').value.toLowerCase(),f=document.getElementById('filter').value;let list=docs.filter(d=>(!q||d.title.toLowerCase().includes(q)||d.html.replace(/<[^>]*>/g,' ').toLowerCase().includes(q))&&(!f||d.folder===f)&&(!onlyFav||d.fav));document.getElementById('docs').innerHTML=list.map(d=>'<div class="doc"><div onclick="loadDoc(\\''+d.id+'\\')"><b>'+escapeHtml(d.title)+'</b><small>'+escapeHtml(d.folder)+(d.fav?' · ★ favorito':'')+'</small></div><button onclick="removeDoc(\\''+d.id+'\\')">Excluir</button></div>').join('')||'<p class="hint">Nenhum documento encontrado.</p>'}
+function removeDoc(id){if(!confirm('Excluir este documento?'))return;docs=docs.filter(d=>d.id!==id);persist();if(current===id)newDoc();renderDocs()}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportDoc(fmt){let name=(title.value.trim()||'Documento').replace(/[\\\\/:*?"<>|]/g,'_');if(!editor.innerText.trim()){alert('Escreva algo antes de exportar.');return}if(window.Stochy)Stochy.exportFile(name,editor.innerHTML,fmt);else alert('Exportação disponível no aplicativo Android.')}
+renderDocs();
+</script></body></html>
