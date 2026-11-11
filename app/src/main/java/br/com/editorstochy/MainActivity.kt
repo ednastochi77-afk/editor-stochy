@@ -11,12 +11,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.ComponentActivity
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-class MainActivity : ComponentActivity() {
+class MainActivity : Activity() {
     private lateinit var web: WebView
     private var pendingBytes: ByteArray = byteArrayOf()
     private var pendingMime = "text/plain"
