@@ -14,19 +14,31 @@
 <section class="panel"><div class="row"><input id="search" placeholder="Pesquisar documentos..." oninput="renderDocs()"><select id="filter" onchange="renderDocs()"><option value="">Todas as pastas</option><option>Pessoal</option><option>Trabalho</option><option>Estudos</option><option>Outros</option></select><button onclick="showFavs()">☆</button></div><div id="docs"></div></section>
 </main>
 <script>
-let docs=JSON.parse(localStorage.getItem('stochy_docs')||'[]'),current=null,onlyFav=false;
+let docs=[];
+try { docs=JSON.parse(localStorage.getItem('stochy_docs')||'[]'); if(!Array.isArray(docs)) docs=[]; } catch(e) { docs=[]; }
+let current=null,onlyFav=false;
 const editor=document.getElementById('editor'),title=document.getElementById('title'),folder=document.getElementById('folder');
-function cmd(c){document.execCommand(c,false,null);editor.focus()}
-function persist(){localStorage.setItem('stochy_docs',JSON.stringify(docs))}
-function saveDoc(){let name=title.value.trim()||'Sem título',html=editor.innerHTML;if(!editor.innerText.trim()){alert('Escreva algo antes de salvar.');return}
-let d=current?docs.find(x=>x.id===current):null;if(d){d.title=name;d.html=html;d.folder=folder.value;d.updated=Date.now()}else{d={id:String(Date.now()),title:name,html,folder:folder.value,fav:false,updated:Date.now()};docs.unshift(d);current=d.id}persist();renderDocs();alert('Documento salvo neste aparelho!')}
-function newDoc(){current=null;title.value='';editor.innerHTML='';folder.value='Pessoal';}
-function loadDoc(id){let d=docs.find(x=>x.id===id);if(!d)return;current=id;title.value=d.title;editor.innerHTML=d.html;folder.value=d.folder}
-function toggleFav(){let d=docs.find(x=>x.id===current);if(!d){alert('Salve o documento primeiro.');return}d.fav=!d.fav;persist();renderDocs();alert(d.fav?'Adicionado aos favoritos.':'Removido dos favoritos.')}
+function cmd(c){editor.focus();document.execCommand(c,false,null)}
+function persist(){try{localStorage.setItem('stochy_docs',JSON.stringify(docs));return true}catch(e){alert('Não foi possível salvar neste aparelho. Verifique o espaço disponível.');return false}}
+function saveDoc(){
+ const name=title.value.trim()||'Sem título',html=editor.innerHTML;
+ if(!editor.innerText.trim()){alert('Escreva algo antes de salvar.');return}
+ let d=current?docs.find(x=>x.id===current):null;
+ if(d){d.title=name;d.html=html;d.folder=folder.value;d.updated=Date.now()}
+ else{d={id:String(Date.now()),title:name,html,folder:folder.value,fav:false,updated:Date.now()};docs.unshift(d);current=d.id}
+ if(persist()){renderDocs();alert('Documento salvo neste aparelho!')}
+}
+function newDoc(){current=null;title.value='';editor.innerHTML='';folder.value='Pessoal';editor.focus()}
+function loadDoc(id){const d=docs.find(x=>x.id===String(id));if(!d)return;current=d.id;title.value=d.title;editor.innerHTML=d.html;folder.value=d.folder||'Pessoal';window.scrollTo(0,0)}
+function toggleFav(){let d=docs.find(x=>x.id===current);if(!d){alert('Salve o documento primeiro.');return}d.fav=!d.fav;if(persist()){renderDocs();alert(d.fav?'Adicionado aos favoritos.':'Removido dos favoritos.')}}
 function showFavs(){onlyFav=!onlyFav;renderDocs()}
-function renderDocs(){let q=document.getElementById('search').value.toLowerCase(),f=document.getElementById('filter').value;let list=docs.filter(d=>(!q||d.title.toLowerCase().includes(q)||d.html.replace(/<[^>]*>/g,' ').toLowerCase().includes(q))&&(!f||d.folder===f)&&(!onlyFav||d.fav));document.getElementById('docs').innerHTML=list.map(d=>'<div class="doc"><div onclick="loadDoc(\\''+d.id+'\\')"><b>'+escapeHtml(d.title)+'</b><small>'+escapeHtml(d.folder)+(d.fav?' · ★ favorito':'')+'</small></div><button onclick="removeDoc(\\''+d.id+'\\')">Excluir</button></div>').join('')||'<p class="hint">Nenhum documento encontrado.</p>'}
-function removeDoc(id){if(!confirm('Excluir este documento?'))return;docs=docs.filter(d=>d.id!==id);persist();if(current===id)newDoc();renderDocs()}
-function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function exportDoc(fmt){let name=(title.value.trim()||'Documento').replace(/[\\\\/:*?"<>|]/g,'_');if(!editor.innerText.trim()){alert('Escreva algo antes de exportar.');return}if(window.Stochy)Stochy.exportFile(name,editor.innerHTML,fmt);else alert('Exportação disponível no aplicativo Android.')}
+function renderDocs(){
+ const q=document.getElementById('search').value.toLowerCase(),f=document.getElementById('filter').value;
+ const list=docs.filter(d=>(!q||d.title.toLowerCase().includes(q)||d.html.replace(/<[^>]*>/g,' ').toLowerCase().includes(q))&&(!f||d.folder===f)&&(!onlyFav||d.fav));
+ document.getElementById('docs').innerHTML=list.map(d=>`<div class="doc"><div><b>${escapeHtml(d.title)}</b><small>${escapeHtml(d.folder||'Pessoal')}${d.fav?' · ★ favorito':''}</small></div><div class="row"><button onclick="loadDoc('${d.id}')">Abrir</button><button onclick="removeDoc('${d.id}')">Excluir</button></div></div>`).join('')||'<p class="hint">Nenhum documento encontrado.</p>';
+}
+function removeDoc(id){if(!confirm('Excluir este documento?'))return;docs=docs.filter(d=>d.id!==String(id));if(persist()){if(current===String(id))newDoc();renderDocs()}}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportDoc(fmt){const name=(title.value.trim()||'Documento').replace(/[\\/:*?"<>|]/g,'_');if(!editor.innerText.trim()){alert('Escreva algo antes de exportar.');return}if(window.Stochy&&typeof Stochy.exportFile==='function')Stochy.exportFile(name,editor.innerHTML,fmt);else alert('A função de exportação não está disponível.')}
 renderDocs();
 </script></body></html>
